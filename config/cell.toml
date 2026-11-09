@@ -1,0 +1,54 @@
+# Cell layout and motion settings, shared by the simulator and the real cobot.
+# Units: metres, radians. Frame: robot base frame (z up, +x toward the tray).
+# For the real cell, measure these on the bench (jog the TCP to each point and read its pose).
+
+[tray]
+center = [0.45, 0.0]
+half = 0.20              # tray is 40 x 40 cm
+usable_half = 0.16       # sim scatters parts within +/- this of the centre
+top_z = 0.006            # height of the tray surface
+
+[part]
+half = [0.025, 0.012, 0.008]   # box half-sizes (5 x 2.4 x 1.6 cm)
+spacing = 0.07                 # sim: min centre-to-centre distance between parts
+
+# Software limits for every TCP target, applied before anything reaches a robot driver.
+[workspace]
+x = [0.05, 0.80]
+y = [-0.65, 0.65]
+z = [0.0, 0.60]
+
+[motion]
+home = [0.22, 0.0, 0.40]   # TCP home: back from the tray so the overhead camera sees it clearly
+safe_z = 0.20              # travel height between tray and bins
+approach_z = 0.10          # pre-pick height above the tray
+grasp_z = 0.014            # TCP height for a grasp; adjust for your gripper
+drop_z = 0.12              # TCP height when releasing over a bin
+drop_jitter = 0.03         # random +/- offset of the drop point inside a bin
+settle_s = 0.4             # wait after release so the part lands
+speed = 1.0                # joint speed scale (sim: 1.0 = 1.2 rad/s)
+
+# Part colours as RGBA (used to draw parts in the sim). Each colour needs a bin of the same name.
+[colors]
+blue = [0.20, 0.45, 0.90, 1]
+green = [0.25, 0.75, 0.35, 1]
+yellow = [0.95, 0.80, 0.15, 1]
+
+[bins]
+inner_half = 0.07
+
+[bins.blue]
+xy = [0.12, 0.45]
+rgba = [0.15, 0.32, 0.65, 1]
+
+[bins.green]
+xy = [0.32, 0.45]
+rgba = [0.18, 0.52, 0.25, 1]
+
+[bins.yellow]
+xy = [0.32, -0.45]
+rgba = [0.75, 0.62, 0.10, 1]
+
+[bins.reject]
+xy = [0.12, -0.45]
+rgba = [0.70, 0.22, 0.20, 1]

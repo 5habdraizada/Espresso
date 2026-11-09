@@ -1,0 +1,149 @@
+<!--
+  Pick-and-place cell: 6-axis cobot with a 2-finger gripper and a wrist camera (eye-in-hand),
+  a parts tray, sorting bins and a fixed overhead camera (eye-to-hand).
+
+  Units: metres, radians. World frame = robot base frame (z up, +x toward the tray).
+  Parts and bins are inserted by cell.py at the PARTS and BINS markers.
+-->
+<mujoco model="pick_place_cell">
+  <compiler angle="radian" autolimits="true"/>
+  <option timestep="0.002" integrator="implicitfast"/>
+
+  <visual>
+    <global offwidth="1280" offheight="960" azimuth="150" elevation="-25"/>
+    <headlight ambient="0.35 0.35 0.35" diffuse="0.5 0.5 0.5" specular="0.1 0.1 0.1"/>
+    <quality shadowsize="4096"/>
+  </visual>
+
+  <statistic center="0.3 0 0.25" extent="0.9"/>
+
+  <asset>
+    <texture name="sky" type="skybox" builtin="gradient" rgb1="0.35 0.45 0.55" rgb2="0.05 0.05 0.08" width="512" height="3072"/>
+    <texture name="bench" type="2d" builtin="checker" rgb1="0.42 0.44 0.46" rgb2="0.38 0.40 0.42" width="512" height="512" mark="edge" markrgb="0.3 0.3 0.32"/>
+    <material name="bench" texture="bench" texrepeat="8 8" reflectance="0.05"/>
+    <material name="arm" rgba="0.78 0.80 0.83 1" specular="0.4" shininess="0.5"/>
+    <material name="joint" rgba="0.20 0.42 0.62 1" specular="0.3"/>
+    <material name="dark" rgba="0.15 0.15 0.17 1"/>
+    <material name="tray" rgba="0.25 0.27 0.30 1"/>
+  </asset>
+
+  <default>
+    <default class="arm">
+      <joint damping="1" armature="0.05"/>
+      <!-- The arm does not collide with anything: motion is position-controlled and
+           clearance is handled by the waypoints (approach heights above tray/bins). -->
+      <geom type="capsule" contype="0" conaffinity="0" material="arm" density="800"/>
+      <position kp="1500" kv="120" forcerange="-300 300"/>
+    </default>
+    <default class="fixture">
+      <geom type="box" material="tray"/>
+    </default>
+    <!-- 2-finger parallel gripper. Joint value = distance from the tool axis to a finger's
+         inner face, so the opening is 2 x q (0 to 5 cm). Fingers collide with parts and fixtures. -->
+    <default class="gripper">
+      <joint type="slide" damping="2" armature="0.002" range="0 0.025"/>
+      <geom type="box" contype="1" conaffinity="1" condim="4" friction="1.5 0.02 0.001"
+            solref="0.004 1" solimp="0.95 0.99 0.001" density="1200" material="dark"/>
+      <position kp="600" kv="10" ctrlrange="0 0.025" forcerange="-20 20"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <light name="key" pos="0.6 -0.4 1.6" dir="-0.3 0.25 -1" diffuse="0.6 0.6 0.6" castshadow="true"/>
+    <light name="fill" pos="0.45 0 1.2" dir="0 0 -1" diffuse="0.3 0.3 0.3" castshadow="false"/>
+
+    <geom name="bench" type="plane" size="1.2 1.2 0.05" material="bench"/>
+
+    <!-- Fixed overhead camera looking straight down at the tray.
+         Image right = world -y, image up = world +x. -->
+    <camera name="overhead" pos="0.45 0 0.75" xyaxes="0 -1 0 1 0 0" fovy="35"/>
+    <camera name="cell_view" pos="1.25 -0.95 0.85" xyaxes="0.6 0.8 0 -0.3 0.22 0.93" fovy="45"/>
+
+    <!-- Parts tray: plate with low lips. Plate top is at z = 0.006. -->
+    <body name="tray" pos="0.45 0 0">
+      <geom class="fixture" size="0.20 0.20 0.003" pos="0 0 0.003"/>
+      <geom class="fixture" size="0.20 0.004 0.008" pos="0 0.196 0.014"/>
+      <geom class="fixture" size="0.20 0.004 0.008" pos="0 -0.196 0.014"/>
+      <geom class="fixture" size="0.004 0.20 0.008" pos="0.196 0 0.014"/>
+      <geom class="fixture" size="0.004 0.20 0.008" pos="-0.196 0 0.014"/>
+    </body>
+
+    <!-- Sorting bins, one per entry in cell.py BINS. Inner size 0.14 x 0.14, walls 0.06 high. -->
+    <!--BINS-->
+
+    <!-- 6-axis arm. Joints: base yaw (z), shoulder/elbow/wrist pitch (y), wrist roll (x), tool yaw (z).
+         Every link is gravity-compensated, like a real cobot controller does. -->
+    <body name="base">
+      <geom type="cylinder" size="0.08 0.075" pos="0 0 0.075" contype="0" conaffinity="0" material="dark"/>
+      <body name="link1" pos="0 0 0.15" gravcomp="1" childclass="arm">
+        <joint name="j1" axis="0 0 1" range="-3.1416 3.1416"/>
+        <geom type="cylinder" size="0.065 0.03" pos="0 0 0.02" material="joint"/>
+        <body name="link2" pos="0 0 0.05" gravcomp="1">
+          <joint name="j2" axis="0 1 0" range="-2.5 2.5"/>
+          <geom type="cylinder" size="0.06 0.06" quat="0.7071 0.7071 0 0" material="joint"/>
+          <geom fromto="0 0 0 0 0 0.40" size="0.045"/>
+          <body name="link3" pos="0 0 0.40" gravcomp="1">
+            <joint name="j3" axis="0 1 0" range="-2.8 2.8"/>
+            <geom type="cylinder" size="0.05 0.05" quat="0.7071 0.7071 0 0" material="joint"/>
+            <geom fromto="0 0 0 0 0 0.35" size="0.038"/>
+            <body name="link4" pos="0 0 0.35" gravcomp="1">
+              <joint name="j4" axis="0 1 0" range="-3.1416 3.1416"/>
+              <geom type="cylinder" size="0.04 0.04" quat="0.7071 0.7071 0 0" material="joint"/>
+              <geom fromto="0 0 0 0 0 0.08" size="0.033"/>
+              <body name="link5" pos="0 0 0.08" gravcomp="1">
+                <joint name="j5" axis="1 0 0" range="-3.1416 3.1416"/>
+                <geom type="cylinder" size="0.036 0.036" quat="0.7071 0 0.7071 0" material="joint"/>
+                <geom fromto="0 0 0 0 0 0.07" size="0.03"/>
+                <body name="link6" pos="0 0 0.07" gravcomp="1">
+                  <joint name="j6" axis="0 0 1" range="-6.2832 6.2832"/>
+                  <geom type="cylinder" size="0.032 0.012" pos="0 0 0.012" material="joint"/>
+                  <!-- 2-finger gripper on the flange (flange face at z = 0.024, +z out of the tool).
+                       Fingers close along this frame's y axis; the tool x axis is the part's long axis.
+                       Finger tips are at z = 0.119; the TCP sits 5 mm above them, mid-pad. -->
+                  <body name="gripper" pos="0 0 0.024" childclass="gripper">
+                    <geom name="palm" size="0.018 0.04 0.012" pos="0 0 0.012" contype="0" conaffinity="0"/>
+                    <body name="finger_l" pos="0 0 0.024">
+                      <joint name="finger_l" axis="0 1 0"/>
+                      <geom name="finger_l" size="0.009 0.004 0.0355" pos="0 0.004 0.0355"/>
+                    </body>
+                    <body name="finger_r" pos="0 0 0.024">
+                      <joint name="finger_r" axis="0 -1 0"/>
+                      <geom name="finger_r" size="0.009 0.004 0.0355" pos="0 -0.004 0.0355"/>
+                    </body>
+                  </body>
+                  <site name="tcp" pos="0 0 0.114" size="0.004" rgba="1 0.8 0 1"/>
+                  <!-- Eye-in-hand camera on the flange, offset 4.5 cm and tilted ~17 deg
+                       inward so the area around the TCP is in view. -->
+                  <geom type="box" size="0.012 0.018 0.012" pos="0.045 0 0.03" material="dark"/>
+                  <camera name="wrist" pos="0.045 0 0.045" xyaxes="0.955 0 0.296 0 -1 0" fovy="70"/>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <!--PARTS-->
+  </worldbody>
+
+  <actuator>
+    <position name="a1" joint="j1" class="arm"/>
+    <position name="a2" joint="j2" class="arm"/>
+    <position name="a3" joint="j3" class="arm"/>
+    <position name="a4" joint="j4" class="arm" kp="800" kv="60"/>
+    <position name="a5" joint="j5" class="arm" kp="600" kv="40"/>
+    <position name="a6" joint="j6" class="arm" kp="400" kv="25"/>
+    <!-- Gripper: one actuator, fingers mechanically coupled (equality below), like a real
+         parallel gripper. ctrl = target half-opening in metres: 0.025 open, 0 closed. -->
+    <position name="grip" joint="finger_l" class="gripper"/>
+  </actuator>
+
+  <equality>
+    <joint joint1="finger_r" joint2="finger_l" polycoef="0 1 0 0 0"/>
+  </equality>
+
+  <contact>
+    <exclude body1="finger_l" body2="finger_r"/>
+  </contact>
+</mujoco>
